@@ -11,7 +11,9 @@
 #include <util/delay.h>
 #include <stdlib.h>
 #define F_CPU 20000000  // system clock is 20 MHz
-volatile unsigned short hc_sr04_cnt;
+int16_t Distance = 0;
+static volatile int pulse = 0;
+static volatile int i = 0;
 
  
 // Motor Control Functions -- pwm is an 8-bit value
@@ -44,7 +46,7 @@ void M2_reverse(unsigned char pwm)
  
 // Motor Initialization routine -- this function must be called
 //  before you use any of the above functions
-void motors_init()
+void Port_init()
 {
     // configure for inverted PWM output on motor control pins:
     //  set OCxx on compare match, clear on timer overflow
@@ -54,66 +56,22 @@ void motors_init()
     // use the system clock/8 (=2.5 MHz) as the timer clock
     TCCR0B = TCCR2B = 0x02;
  
-    // initialize all PWMs to 0% duty cycle (braking)
+    // initialize all PWMs to 0% duty cycle
     OCR0A = OCR0B = OCR2A = OCR2B = 0;
  
     // set PWM pins as digital outputs (the PWM signals will not
     // appear on the lines if they are digital inputs)
     DDRD |= (1 << PORTD3) | (1 << PORTD5) | (1 << PORTD6);
     DDRB |= (1 << PORTB3);
-}
-
-
-void Port_Init()
-{
-	DDRD|=(1<<PORTD0); //	Set all pins of the PORTD as output, PORTD0 as input trigger.
-	PORTD|=0b00000000; // Set all pins of PORTD low which turns it off.
-	//DDRB|=0b00000000;
-	//PORTB|=0b00000000;
 	
+	
+	DDRD|=(1<<PORTD0); //	Set  PORTD0 as ultrasonic trigger.
+		
 	EIMSK |= (1<<INT0); //enable external interrupt
 	EICRA |= (1<<ISC00); // Any logical change on INT0 generates an interrupt request.
 
 	//Config and enable Timer1
 	TCCR1B = (0<<CS12)|(1<<CS11)|(1<<CS10);
-}
-
-ISR( INT0_vect )
-{
-	//echo
-	if(PORTD & (1 << PORTD2)) 
-	{TCNT1 = 0;}/* Clear Timer counter */
-	else  
-	{hc_sr04_cnt = TCNT1;
-	if (hc_sr04_cnt/2 * 34300)<10)
-	{
-		M1_forward(0);
-		M2_forward(0);
-	}
-	}
-	
-
-}
-
-unsigned char hc_sr04_meas( void )
-{
-	
-	hc_sr04_cnt = 0;
-	
-	// transmit at least 10 us trigger pulse to the HC-SR04 Trig Pin(d0).
-	PORTD |=  (1 << PORTD0);
-	_delay_us( 20 );
-	PORTD &= ~(1 << PORTD0);
-
-
-	while( hc_sr04_cnt == 0 );
-	
-	//if (hc_sr04_cnt<3700)
-	 //{
-		 return  hc_sr04_cnt/2 * 34300;
-		// } 
-	//else {return 41;}
-	
 }
 
 
@@ -137,32 +95,67 @@ void delay_ms(unsigned int time_ms)
  
 int main()
 {
-	int a =0;
-    motors_init();
+	Port_init();//Port Initialization
 	unsigned char sm;
-	Port_Init(); // Port Initialization
 	sei();
 	
    
 	while(1)
-	{
-		 M1_forward(100);
-		 M2_forward(100);
-		 sm = hc_sr04_meas();
-		 a=hc_sr04_cnt/1000;
-		if (sm<50 && sm>40)
-		{
-				
-		M1_forward(0);
-		M2_forward(0);
-		}
-	
-		 		 
-		_delay_ms( 20 );
-	}
-		
+	{	
+		DDRD &= ~(1 << PORTD1);     // Clear the PB0 pin
+		// PD1 (PCINT17 pin) is now an input
+
+		PORTB |= (1 << PORTD1);    // turn On the Pull-up
+		// PD1 is now an input with pull-up enabled
+
+
+		PCICR |= (1 << PCIE0);    // set PCIE0 to enable PCMSK0 scan
+		PCMSK0 |= (1 << PCINT17);  // set PCINT0 to trigger an interrupt on state change
 
 		
+	
+		 M1_forward(80);
+		 M2_forward(80);
+		 PORTD|=(1<<PIND0); // trigger=1 high pulse
+		 _delay_us(10); // wait minimum 10 us
+		 PORTD &=~(1<<PIND0); // trigger=0 low pulse
+		 Distance = pulse/58; // take distance in cm  (29 microsecond per cm *2)
+		 _delay_ms(20);
+		 if(Distance <=20) // compare the value of count which is distance
+		 {
+			M1_forward(0);
+			M2_forward(0);
+		 }
+			 
+		_delay_ms( 10 );
 	}
 	
+	}
+
+
+ISR(INT0_vect)
+{
+	if(i == 1)
+	{
+		TCCR1B = 0;
+		pulse = TCNT1;
+		TCNT1 = 0;
+		i = 0;
+	}
+
+	if(i==0)
+	{
+		TCCR1B |= 1<<CS10;
+		i = 1;
+	}
+}
+
+char check,data,invdata,count=0;
+
+ISR (PCINT0_vect)
+{
+	/* interrupt code here */
+	if 
+}
+
 	

@@ -1,69 +1,39 @@
 /*
- * Traffic Lights.c
+ * GccApplication1_test.c
  *
- * Created: 10-02-2020 15:58:17
+ * Created: 06-03-2020 17:00:56
  * Author : ashru
  */ 
 
 #include <avr/io.h>
-#include <stdlib.h>
-#include <stdio.h>
+#define F_CPU 1000000UL
 #include <util/delay.h>
 
 
+void Port_Initialisation()
+{
+//PORTD4 used for green led, PORTD3 used for red led, IR led connected at PORTD5
+DDRD|=(1<<PORTD5)|(1<<PORTD3)|(1<<PORTD4);	
+	
+}
 
 int main(void)
 {
-	setIrModOutput();
-	TIMSK2 = (1<<OCIE2B); // Output Compare Match B Interrupt Enable
-    /* Replace with your application code */
-	uint8_t i;
-	DDRD |= (1<<PIND3)|(1<<PIND6)|(1<<PIND7); // pins 3(Red),6(Green),7(Yellow) set to output on PORT D
-	//DDRB = 0b00000001; // some pins of PORT B as output
+	Port_Initialisation();
+    TCCR0A = (1<<WGM01)|(1<<WGM00)|(1<<COM0B1);// Counter used to pulse modulate IR
+	TCCR0B = (1<<WGM02)|(1<<CS00); // Counter used to create IR signals
+	OCR0A = 25; // Peak to reset the counter at 25 microseconds
+	OCR0B = 13;// IR signals rising and falling edge of 13 micro seconds
     while (1) 
     {
-		// want to have green light glowing to begin with
-		//Hence turn on green light at 6
-		PORTD =0b01000000;
-		_delay_ms(500);
-		PORTD = 0b00001000;// turn on red light
-		_delay_ms(500);
-		PORTD = 0b10000000;//turn on yellow light
-		_delay_ms(500);
-		//PORTD = 0b00100000;
-		//_delay_ms(50);
+		//_delay_ms(2000);
+		TCCR0A =(1<<WGM01)|(1<<WGM00)|(0<<COM0B1); // IR not transmitting (turning off COM0B1)
+		PORTD =(1<<PORTD4);
+		_delay_ms(2000);
+		TCCR0A =(1<<WGM01)|(1<<WGM00)|(1<<COM0B1); // IR transmitting (turning on COM0B1)
+		PORTD =(1<<PORTD3);
+		_delay_ms(2000);
 		
-		
-		}
-		
+    }
 }
-
-
-volatile int pulse = 0;
-
-ISR(TIMER2_COMPB_vect){  // Interrupt service routine to pulse the modulated pin 3
-	pulse++;
-	if(pulse >= 8) { // change number for number of modulation cycles in a pulse
-		pulse =0;
-		TCCR2A ^= (1<<COM2B1); // toggle pin 3 enable, turning the pin on and off
-	}
-}
-
-void setIrModOutput(){  // sets pin 3 going at the IR modulation rate
-	//DDRD|=(1<<PIND3);
-	TCCR2A = (1<<COM2B1) | (1<<WGM21) | (1<<WGM20); // Just enable output on Pin 3 and disable it on Pin 11
-	TCCR2B = (1<<WGM22) | (1<<CS22);
-	OCR2A = 51; // defines the frequency 51 = 38.4 KHz, 54 = 36.2 KHz, 58 = 34 KHz, 62 = 32 KHz
-	OCR2B = 26;  // defines the duty cycle - Half the OCR2A value for 50%
-	TCCR2B = TCCR2B & 0b00111000 | 0x2; // select a prescale value of 8:1 of the system clock
-}
-
-void setup(){
-	setIrModOutput();
-	TIMSK2 = (1<<OCIE2B); // Output Compare Match B Interrupt Enable
-}
-
-//
-
-
 

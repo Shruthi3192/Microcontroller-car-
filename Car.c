@@ -116,8 +116,8 @@ int main()
 			}
 			else
 			{
-				M1_forward(100);
-				M2_forward(100);
+				M1_forward(180);
+				M2_forward(120); //because the right motor kind of moved fast
 				PORTC=(1<<PORTC4);
 			 }
 		}// end of if condition checking for IR receiver transmission

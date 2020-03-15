@@ -29,10 +29,10 @@ int main(void)
 		//_delay_ms(2000);
 		TCCR0A =(1<<WGM01)|(1<<WGM00)|(0<<COM0B1); // IR not transmitting (turning off COM0B1)
 		PORTD =(1<<PORTD4);
-		_delay_ms(2000);
+		_delay_ms(1500);
 		TCCR0A =(1<<WGM01)|(1<<WGM00)|(1<<COM0B1); // IR transmitting (turning on COM0B1)
 		PORTD =(1<<PORTD3);
-		_delay_ms(2000);
+		_delay_ms(1500);
 		
     }
 }
